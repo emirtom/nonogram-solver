@@ -46,6 +46,10 @@ class Nonogram {
     // True iff no cell is Unknown.
     bool is_complete() const;
 
+    // True iff the board is complete AND the black runs in every row/column
+    // match the original clues. Call after is_complete() returns true.
+    bool is_valid_solution() const;
+
     // ASCII render: '#' black, '.' white, '?' unknown. For CLI/debug.
     std::string to_ascii() const;
 

@@ -396,14 +396,16 @@ TEST_CASE("Rule 3.1: no colored cells -> no fire") {
     CHECK_FALSE(u.ranges_changed);
 }
 
-TEST_CASE("Rule 3.1: segment too long -> contradiction") {
+TEST_CASE("Rule 3.1: segment too long -> skip fill and range tightening") {
     // Clue [3] on n=10, range [0,9]. Black at 1 and 6.
-    // u = 3 - (6-1+1) = -3 < 0 -> contradiction.
+    // u = 3 - (6-1+1) = -3 < 0. Skip fill and range update.
     Line ln = make_line(10, {3});
     ln.cells[1] = CellState::Black;
     ln.cells[6] = CellState::Black;
     LineUpdate u = rule_3_1(ln);
-    CHECK(u.contradiction);
+    CHECK_FALSE(u.contradiction);
+    CHECK_FALSE(u.cells_changed);
+    CHECK_FALSE(u.ranges_changed);
 }
 
 TEST_CASE("Rule 3.1: colored at exact run -> tighten to segment") {

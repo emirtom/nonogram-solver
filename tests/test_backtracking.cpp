@@ -50,18 +50,15 @@ TEST_CASE("CB: 2x2 diagonal puzzle has multiple solutions") {
 
 // ---- Paper Fig. 3: a puzzle with no solution --------------------------------
 
-TEST_CASE("CB: 2x2 over-constrained puzzle has no solution") {
+TEST_CASE("CB: 2x2 over-constrained -> NoSolution via CB") {
     // rows [2],[2] force all cells black; cols [1],[1] want one black per
-    // column -> contradiction.
+    // column. LR fixpoint aborts on contradiction; CB explores and finds none.
     Nonogram b(2, 2, {{2}, {2}}, {{1}, {1}});
     SolveResult r = chronological_backtracking(b);
     CHECK(r.status == SolveStatus::NoSolution);
 }
 
-TEST_CASE("CB: LR detects contradiction at root -> NoSolution without CB") {
-    // Same no-solution puzzle via the Solver façade: LR fixpoint should
-    // already detect the contradiction (Rule 1.1 forces row cells black,
-    // then column check conflicts).
+TEST_CASE("Solver: 2x2 over-constrained -> NoSolution") {
     Nonogram b(2, 2, {{2}, {2}}, {{1}, {1}});
     Solver solver(std::move(b));
     SolveOutcome o = solver.solve();

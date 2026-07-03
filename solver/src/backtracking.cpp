@@ -4,7 +4,6 @@
 #include <climits>
 #include <utility>
 #include <vector>
-
 namespace nonogram {
 
 namespace {
@@ -63,8 +62,11 @@ bool all_lines_satisfiable(const Nonogram& b) {
     return true;
 }
 
+}  // namespace (anonymous)
+
 // MRV: pick an Unknown cell in the line (row or column) with the fewest
 // remaining Unknowns. Returns {-1,-1} if the board is complete.
+// (Exposed via the header for Solver::step().)
 std::pair<int, int> pick_mrv_cell(const Nonogram& b) {
     int best_unk = INT_MAX;
     std::pair<int, int> best = {-1, -1};
@@ -83,6 +85,8 @@ std::pair<int, int> pick_mrv_cell(const Nonogram& b) {
     return best;
 }
 
+namespace {
+
 void set_cell(Nonogram& b, int r, int c, CellState s) {
     b.row(r).cells[c] = s;
     b.sync_row_to_cols(r);
@@ -97,8 +101,10 @@ void cb_search(Nonogram& b, int& found_count, Nonogram& first_solution,
     if (!run_to_fixpoint(b)) return;
     if (!all_lines_satisfiable(b)) return;
     if (b.is_complete()) {
-        ++found_count;
-        if (found_count == 1) first_solution = b;
+        if (b.is_valid_solution()) {
+            ++found_count;
+            if (found_count == 1) first_solution = b;
+        }
         return;
     }
     auto [r, c] = pick_mrv_cell(b);
@@ -117,11 +123,11 @@ void cb_search(Nonogram& b, int& found_count, Nonogram& first_solution,
 }  // namespace
 
 SolveResult chronological_backtracking(Nonogram& board) {
-    // The caller (Solver::solve) has already run the LR fixpoint and checked
-    // completeness. We re-run it here for safety/standalone use; at fixpoint
-    // it's a no-op.
     if (!run_to_fixpoint(board)) return {SolveStatus::NoSolution, 0};
-    if (board.is_complete())    return {SolveStatus::Solved, 0};
+    if (board.is_complete() && board.is_valid_solution())
+        return {SolveStatus::Solved, 0};
+    if (board.is_complete())
+        return {SolveStatus::NoSolution, 0};
 
     int found = 0;
     Nonogram first_solution = board;

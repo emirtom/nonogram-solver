@@ -99,6 +99,34 @@ bool Nonogram::is_complete() const {
     return true;
 }
 
+static std::vector<int> compute_black_runs(const std::vector<CellState>& cells) {
+    std::vector<int> runs;
+    int count = 0;
+    for (CellState s : cells) {
+        if (s == CellState::Black) { ++count; }
+        else if (count > 0) { runs.push_back(count); count = 0; }
+    }
+    if (count > 0) runs.push_back(count);
+    return runs;
+}
+
+bool Nonogram::is_valid_solution() const {
+    if (!is_complete()) return false;
+    for (int r = 0; r < height_; ++r) {
+        auto actual = compute_black_runs(rows_[r].cells);
+        auto expected = std::vector<int>{};
+        for (const Run& run : rows_[r].runs) expected.push_back(run.lb);
+        if (actual != expected) return false;
+    }
+    for (int c = 0; c < width_; ++c) {
+        auto actual = compute_black_runs(cols_[c].cells);
+        auto expected = std::vector<int>{};
+        for (const Run& run : cols_[c].runs) expected.push_back(run.lb);
+        if (actual != expected) return false;
+    }
+    return true;
+}
+
 std::string Nonogram::to_ascii() const {
     std::string out;
     out.reserve((height_ + 1) * (width_ + 1));

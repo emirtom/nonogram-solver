@@ -1,4 +1,5 @@
 #include "nonogram/solver.hpp"
+#include "nonogram/backtracking.hpp"
 #include "nonogram/logical_rules.hpp"
 
 namespace nonogram {
@@ -6,16 +7,16 @@ namespace nonogram {
 SolveOutcome Solver::solve(SolveOptions opts) {
     SolveOutcome out;
     bool ok = run_to_fixpoint(board_);
-    if (!ok) {
-        out.status = SolveStatus::NoSolution;
-        return out;
-    }
-    if (board_.is_complete()) {
+    if (ok && board_.is_complete() && board_.is_valid_solution()) {
         out.status = SolveStatus::Solved;
         return out;
     }
+    if (ok && board_.is_complete()) {
+        out.status = SolveStatus::NoSolution;
+        return out;
+    }
     if (opts.lr_only) {
-        out.status = SolveStatus::InProgress;
+        out.status = ok ? SolveStatus::InProgress : SolveStatus::NoSolution;
         return out;
     }
     SolveResult r = chronological_backtracking(board_);
@@ -38,7 +39,60 @@ SolveOutcome Solver::step() {
         any_change |= u.cells_changed || u.ranges_changed;
     }
     out.lr_changed = any_change;
-    if (board_.is_complete()) out.status = SolveStatus::Solved;
+
+    if (board_.is_complete() && board_.is_valid_solution()) {
+        out.status = SolveStatus::Solved;
+        return out;
+    }
+    if (board_.is_complete()) {
+        out.status = SolveStatus::NoSolution;
+        return out;
+    }
+
+    // If LR is at fixpoint and the board isn't complete, do one CB branch:
+    // pick an MRV cell, try Black + LR, if that contradicts try White + LR.
+    if (!any_change) {
+        auto [r, c] = pick_mrv_cell(board_);
+        if (r < 0) return out;  // no unknowns but not complete — shouldn't happen
+
+        Nonogram try_black = board_;
+        try_black.row(r).cells[c] = CellState::Black;
+        try_black.sync_row_to_cols(r);
+        if (run_to_fixpoint(try_black) && !try_black.is_complete()) {
+            board_ = std::move(try_black);
+            out.lr_changed = true;
+            if (board_.is_complete() && board_.is_valid_solution()) out.status = SolveStatus::Solved;
+            return out;
+        }
+        if (try_black.is_complete() && try_black.is_valid_solution()) {
+            board_ = std::move(try_black);
+            out.status = SolveStatus::Solved;
+            out.lr_changed = true;
+            return out;
+        }
+
+        // Black led to contradiction — try White.
+        Nonogram try_white = board_;
+        try_white.row(r).cells[c] = CellState::White;
+        try_white.sync_row_to_cols(r);
+        if (run_to_fixpoint(try_white) && !try_white.is_complete()) {
+            board_ = std::move(try_white);
+            out.lr_changed = true;
+            if (board_.is_complete() && board_.is_valid_solution()) out.status = SolveStatus::Solved;
+            return out;
+        }
+        if (try_white.is_complete() && try_white.is_valid_solution()) {
+            board_ = std::move(try_white);
+            out.status = SolveStatus::Solved;
+            out.lr_changed = true;
+            return out;
+        }
+
+        // Both branches contradicted — no solution from this state.
+        out.status = SolveStatus::NoSolution;
+        return out;
+    }
+
     return out;
 }
 

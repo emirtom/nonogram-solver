@@ -61,12 +61,16 @@ int main(int argc, char** argv) {
             ++pass;
             std::printf("--- after LR pass %d (changed=%d) ---\n", pass, o.lr_changed);
             print_board(solver.board(), "");
-            if (!o.lr_changed) {
-                std::printf("LR fixpoint reached after %d passes\n", pass);
+            if (o.status == nonogram::SolveStatus::Solved) {
+                std::printf("Solved by LR alone after %d passes\n", pass);
                 break;
             }
-            if (solver.board().is_complete()) {
-                std::printf("Solved by LR alone after %d passes\n", pass);
+            if (o.status == nonogram::SolveStatus::NoSolution) {
+                std::printf("No solution found after %d passes\n", pass);
+                break;
+            }
+            if (!o.lr_changed) {
+                std::printf("LR fixpoint reached after %d passes\n", pass);
                 break;
             }
         }

@@ -365,11 +365,11 @@ LineUpdate rule_3_1(Line& line) {
         for (int i = hi; i >= lo; --i)
             if (line.cells[i] == CellState::Black) { cn = i; break; }
         if (cm < 0) continue;  // no colored cells for this run
+        const int u = run.lb - (cn - cm + 1);
+        if (u < 0) continue;  // span too wide — cm/cn likely from different overlapping runs
         // fill between cm and cn
         for (int i = cm; i <= cn; ++i)
             if (!set_black(line, i, out)) return out;
-        const int u = run.lb - (cn - cm + 1);
-        if (u < 0) { out.contradiction = true; return out; }  // segment too long
         const int new_s = cm - u;
         const int new_e = cn + u;
         if (new_s > run.range.start) { run.range.start = new_s; out.ranges_changed = true; }
@@ -645,15 +645,13 @@ bool run_to_fixpoint(Nonogram& board) {
             LineUpdate u = apply_all_rules(board.row(r));
             if (u.contradiction) return false;
             if (u.cells_changed)  board.sync_row_to_cols(r);
-            if (u.ranges_changed) any_change = true;
-            any_change |= u.cells_changed;
+            any_change |= u.cells_changed || u.ranges_changed;
         }
         for (int c = 0; c < board.width(); ++c) {
             LineUpdate u = apply_all_rules(board.col(c));
             if (u.contradiction) return false;
             if (u.cells_changed)  board.sync_col_to_rows(c);
-            if (u.ranges_changed) any_change = true;
-            any_change |= u.cells_changed;
+            any_change |= u.cells_changed || u.ranges_changed;
         }
         if (!any_change) return true;
     }
