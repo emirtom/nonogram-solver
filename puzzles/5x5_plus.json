@@ -1,0 +1,7 @@
+{
+  "name": "5x5 plus (solvable by LR alone via Rule 3.1/3.3)",
+  "width": 5,
+  "height": 5,
+  "rows": [[1], [1], [5], [1], [1]],
+  "cols": [[1], [1], [5], [1], [1]]
+}

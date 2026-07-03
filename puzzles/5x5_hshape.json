@@ -1,0 +1,7 @@
+{
+  "name": "5x5 H-shape (packed lines, demos Rule 1.2)",
+  "width": 5,
+  "height": 5,
+  "rows": [[2, 2], [2, 2], [5], [2, 2], [2, 2]],
+  "cols": [[5], [5], [1], [5], [5]]
+}
