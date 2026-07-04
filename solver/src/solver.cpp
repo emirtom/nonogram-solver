@@ -39,6 +39,7 @@ SolveOutcome Solver::step() {
         any_change |= u.cells_changed || u.ranges_changed;
     }
     out.lr_changed = any_change;
+    out.rule_index = -1;
 
     if (board_.is_complete() && board_.is_valid_solution()) {
         out.status = SolveStatus::Solved;
@@ -49,11 +50,9 @@ SolveOutcome Solver::step() {
         return out;
     }
 
-    // If LR is at fixpoint and the board isn't complete, do one CB branch:
-    // pick an MRV cell, try Black + LR, if that contradicts try White + LR.
     if (!any_change) {
         auto [r, c] = pick_mrv_cell(board_);
-        if (r < 0) return out;  // no unknowns but not complete — shouldn't happen
+        if (r < 0) return out;
 
         Nonogram try_black = board_;
         try_black.row(r).cells[c] = CellState::Black;
@@ -71,7 +70,6 @@ SolveOutcome Solver::step() {
             return out;
         }
 
-        // Black led to contradiction — try White.
         Nonogram try_white = board_;
         try_white.row(r).cells[c] = CellState::White;
         try_white.sync_row_to_cols(r);
@@ -88,8 +86,108 @@ SolveOutcome Solver::step() {
             return out;
         }
 
-        // Both branches contradicted — no solution from this state.
         out.status = SolveStatus::NoSolution;
+        return out;
+    }
+
+    return out;
+}
+
+SolveOutcome Solver::step_rule() {
+    SolveOutcome out;
+
+    if (step_rule_index_ >= NUM_RULES) {
+        step_rule_index_ = 0;
+        if (!step_pass_had_change_) {
+            if (board_.is_complete() && board_.is_valid_solution()) {
+                out.status = SolveStatus::Solved;
+                out.rule_index = -1;
+                return out;
+            }
+            if (board_.is_complete()) {
+                out.status = SolveStatus::NoSolution;
+                out.rule_index = -1;
+                return out;
+            }
+
+            auto [r, c] = pick_mrv_cell(board_);
+            if (r >= 0) {
+                Nonogram try_black = board_;
+                try_black.row(r).cells[c] = CellState::Black;
+                try_black.sync_row_to_cols(r);
+                if (run_to_fixpoint(try_black) && !try_black.is_complete()) {
+                    board_ = std::move(try_black);
+                    out.lr_changed = true;
+                    out.rule_index = -1;
+                    if (board_.is_complete() && board_.is_valid_solution()) out.status = SolveStatus::Solved;
+                    return out;
+                }
+                if (try_black.is_complete() && try_black.is_valid_solution()) {
+                    board_ = std::move(try_black);
+                    out.status = SolveStatus::Solved;
+                    out.lr_changed = true;
+                    out.rule_index = -1;
+                    return out;
+                }
+
+                Nonogram try_white = board_;
+                try_white.row(r).cells[c] = CellState::White;
+                try_white.sync_row_to_cols(r);
+                if (run_to_fixpoint(try_white) && !try_white.is_complete()) {
+                    board_ = std::move(try_white);
+                    out.lr_changed = true;
+                    out.rule_index = -1;
+                    if (board_.is_complete() && board_.is_valid_solution()) out.status = SolveStatus::Solved;
+                    return out;
+                }
+                if (try_white.is_complete() && try_white.is_valid_solution()) {
+                    board_ = std::move(try_white);
+                    out.status = SolveStatus::Solved;
+                    out.lr_changed = true;
+                    out.rule_index = -1;
+                    return out;
+                }
+
+                out.status = SolveStatus::NoSolution;
+                out.rule_index = -1;
+                return out;
+            }
+        }
+        step_pass_had_change_ = false;
+    }
+
+    bool any_change = false;
+
+    for (int r = 0; r < board_.height(); ++r) {
+        LineUpdate u = apply_single_rule(step_rule_index_, board_.row(r));
+        if (u.contradiction) {
+            out.status = SolveStatus::NoSolution;
+            out.rule_index = step_rule_index_;
+            return out;
+        }
+        if (u.cells_changed) board_.sync_row_to_cols(r);
+        any_change |= u.cells_changed || u.ranges_changed;
+    }
+
+    for (int c = 0; c < board_.width(); ++c) {
+        LineUpdate u = apply_single_rule(step_rule_index_, board_.col(c));
+        if (u.contradiction) {
+            out.status = SolveStatus::NoSolution;
+            out.rule_index = step_rule_index_;
+            return out;
+        }
+        if (u.cells_changed) board_.sync_col_to_rows(c);
+        any_change |= u.cells_changed || u.ranges_changed;
+    }
+
+    out.lr_changed = any_change;
+    out.rule_index = step_rule_index_;
+    step_pass_had_change_ |= any_change;
+
+    ++step_rule_index_;
+
+    if (board_.is_complete() && board_.is_valid_solution()) {
+        out.status = SolveStatus::Solved;
         return out;
     }
 

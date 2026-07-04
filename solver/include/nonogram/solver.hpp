@@ -18,6 +18,7 @@ struct SolveOutcome {
     SolveStatus status       = SolveStatus::InProgress;
     long long   nodes        = 0;
     bool        lr_changed   = false;  // last step() changed cells/ranges
+    int         rule_index   = -1;     // which rule (0..10) was applied last (-1 for full step)
 };
 
 class Solver {
@@ -34,10 +35,20 @@ class Solver {
     // anything changed. Used by the Step button and for animation.
     SolveOutcome step();
 
-    void reset() { board_.reset(); }
+    // Apply a single rule (0..10) to all rows then all columns. Automatically
+    // advances to the next rule; when NUM_RULES is reached a full pass is
+    // completed and CB is triggered if the pass had no changes.
+    SolveOutcome step_rule();
+
+    // Current rule index (0..10), or -1 if not tracking.
+    int rule_index() const { return step_rule_index_; }
+
+    void reset() { board_.reset(); step_rule_index_ = 0; step_pass_had_change_ = false; }
 
   private:
     Nonogram board_;
+    int  step_rule_index_     = 0;
+    bool step_pass_had_change_ = false;
 };
 
 }  // namespace nonogram

@@ -617,6 +617,40 @@ LineUpdate rule_3_3(Line& line) {
 
 // ---- Driver ----------------------------------------------------------------
 
+LineUpdate apply_single_rule(int index, Line& line) {
+    switch (index) {
+        case  0: return rule_1_1(line);
+        case  1: return rule_1_2(line);
+        case  2: return rule_1_3(line);
+        case  3: return rule_1_4(line);
+        case  4: return rule_1_5(line);
+        case  5: return rule_2_1(line);
+        case  6: return rule_2_2(line);
+        case  7: return rule_2_3(line);
+        case  8: return rule_3_1(line);
+        case  9: return rule_3_2(line);
+        case 10: return rule_3_3(line);
+        default: return {};
+    }
+}
+
+const char* rule_name(int index) {
+    switch (index) {
+        case  0: return "1.1 intersection";
+        case  1: return "1.2 cells outside";
+        case  2: return "1.3 boundary len-1";
+        case  3: return "1.4 merge exceed";
+        case  4: return "1.5 wall / eq-len";
+        case  5: return "2.1 ranges ordered";
+        case  6: return "2.2 neighbor shrink";
+        case  7: return "2.3 oversized seg";
+        case  8: return "3.1 scattered fill";
+        case  9: return "3.2 skip segments";
+        case 10: return "3.3 non-overlap";
+        default: return "?";
+    }
+}
+
 LineUpdate apply_all_rules(Line& line) {
     LineUpdate total;
     auto acc = [&](LineUpdate u) {

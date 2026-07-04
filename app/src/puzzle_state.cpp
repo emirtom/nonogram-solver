@@ -105,8 +105,18 @@ SolveOutcome PuzzleState::step() {
     return o;
 }
 
+SolveOutcome PuzzleState::step_rule() {
+    SolveOutcome o = solver_.step_rule();
+    board_ = solver_.board();
+    return o;
+}
+
 void PuzzleState::reset() {
     board_.reset();
+    solver_ = Solver{board_};
+}
+
+void PuzzleState::reset_solver() {
     solver_ = Solver{board_};
 }
 

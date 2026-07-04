@@ -30,7 +30,6 @@ class App {
     void init_imgui();
     void shutdown_imgui();
 
-    // UI chrome
     void draw_chrome();
     void draw_puzzle_picker();
     void draw_solver_controls();
@@ -68,9 +67,10 @@ class App {
     CellState paint_mode_ = CellState::Black;  // currently selected paint mode
 
     // Solver status
-    SolveStatus last_status_ = SolveStatus::InProgress;
-    long long   last_nodes_  = 0;
-    bool        ever_solved_ = false;
+    SolveStatus last_status_    = SolveStatus::InProgress;
+    long long   last_nodes_     = 0;
+    bool        ever_solved_    = false;
+    int         last_rule_index_ = -1;
 
     // Contradiction feedback
     std::vector<std::pair<int, int>> bad_cells_;
@@ -79,6 +79,15 @@ class App {
 
     // Backend selection
     Backend backend_ = Backend::CPU;
+
+    // Animated solve
+    bool   animating_        = false;
+    double step_accumulator_ = 0.0;
+    float  step_interval_    = 0.1f;
+    double last_time_        = 0.0;
+    int    step_count_       = 0;
+
+    void stop_animation();
 };
 
 }  // namespace nonogram

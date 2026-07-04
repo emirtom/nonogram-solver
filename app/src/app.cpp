@@ -1,4 +1,5 @@
 #include "app.hpp"
+#include "nonogram/logical_rules.hpp"
 
 #include <glad/gl.h>
 #include <GLFW/glfw3.h>
@@ -114,6 +115,7 @@ void App::draw_puzzle_picker() {
         bool selected = (selected_puzzle_ == i);
         if (ImGui::Selectable(label.c_str(), selected)) {
             selected_puzzle_ = i;
+            stop_animation();
             state_.load_file(p);
             ever_solved_ = false;
             last_status_ = SolveStatus::InProgress;
@@ -124,26 +126,31 @@ void App::draw_puzzle_picker() {
 void App::draw_solver_controls() {
     ImGui::Separator();
     ImGui::Text("Solver");
-    if (ImGui::Button("Solve")) {
-        bad_cells_ = state_.find_contradictions();
-        if (!bad_cells_.empty()) {
-            show_error_ = true;
-            error_time_ = glfwGetTime();
-            last_status_ = SolveStatus::NoSolution;
-        } else {
-            show_error_ = false;
-            SolveOutcome o = state_.solve(backend_);
-            last_status_ = o.status;
-            last_nodes_  = o.nodes;
-            ever_solved_ = (o.status == SolveStatus::Solved);
-            if (o.status == SolveStatus::NoSolution) {
-                bad_cells_ = state_.find_contradictions();
-                if (!bad_cells_.empty()) { show_error_ = true; error_time_ = glfwGetTime(); }
+
+    if (animating_) {
+        if (ImGui::Button("Stop")) {
+            stop_animation();
+        }
+    } else {
+        if (ImGui::Button("Solve")) {
+            bad_cells_ = state_.find_contradictions();
+            if (!bad_cells_.empty()) {
+                show_error_ = true;
+                error_time_ = glfwGetTime();
+                last_status_ = SolveStatus::NoSolution;
+            } else {
+                show_error_ = false;
+                state_.reset_solver();
+                animating_ = true;
+                step_count_ = 0;
+                step_accumulator_ = 0.0;
+                last_rule_index_ = -1;
             }
         }
     }
     ImGui::SameLine();
     if (ImGui::Button("Step")) {
+        stop_animation();
         bad_cells_ = state_.find_contradictions();
         if (!bad_cells_.empty()) {
             show_error_ = true;
@@ -152,7 +159,8 @@ void App::draw_solver_controls() {
         } else {
             show_error_ = false;
             SolveOutcome o = state_.step();
-            last_status_ = o.status;
+            last_status_     = o.status;
+            last_rule_index_ = o.rule_index;
             if (o.status == SolveStatus::Solved) ever_solved_ = true;
             if (o.status == SolveStatus::NoSolution) {
                 bad_cells_ = state_.find_contradictions();
@@ -162,6 +170,7 @@ void App::draw_solver_controls() {
     }
     ImGui::SameLine();
     if (ImGui::Button("Reset")) {
+        stop_animation();
         state_.reset();
         ever_solved_ = false;
         last_status_ = SolveStatus::InProgress;
@@ -170,6 +179,7 @@ void App::draw_solver_controls() {
     }
     ImGui::SameLine();
     if (ImGui::Button("Clear")) {
+        stop_animation();
         if (!state_.empty()) {
             int w = state_.width(), h = state_.height();
             std::vector<std::vector<int>> empty_rows(h), empty_cols(w);
@@ -180,6 +190,17 @@ void App::draw_solver_controls() {
             show_error_ = false;
         }
     }
+
+    ImGui::Separator();
+    ImGui::Text("Animation speed");
+    ImGui::PushItemWidth(120);
+    ImGui::SliderFloat("##speed", &step_interval_, 0.02f, 0.5f, "%.2f s", ImGuiSliderFlags_Logarithmic);
+    ImGui::PopItemWidth();
+    ImGui::SameLine();
+    if (animating_)
+        ImGui::TextDisabled("step %d – %s", step_count_,
+            last_rule_index_ >= 0 ? rule_name(last_rule_index_) : "?");
+
     ImGui::Separator();
     ImGui::Text("Backend");
     ImGui::RadioButton("CPU",  reinterpret_cast<int*>(&backend_), static_cast<int>(Backend::CPU));
@@ -340,6 +361,7 @@ void App::handle_mouse(int fbW, int fbH) {
         if (over_cell && left == GLFW_PRESS) {
             dragging_ = true;
             drag_button_ = 0;
+            stop_animation();
             state_.set_cell(col, row, paint_mode_);
             ever_solved_ = false;
             last_status_ = SolveStatus::InProgress;
@@ -359,6 +381,13 @@ void App::handle_mouse(int fbW, int fbH) {
     }
 }
 
+void App::stop_animation() {
+    animating_        = false;
+    step_accumulator_ = 0.0;
+    step_count_       = 0;
+    last_rule_index_  = -1;
+}
+
 int App::run() {
     if (!init_window()) return 1;
     init_imgui();
@@ -367,6 +396,8 @@ int App::run() {
     // Pre-load a puzzle so the grid is visible immediately.
     if (state_.empty() && !puzzles_.empty())
         state_.load_file(puzzles_[0]);
+
+    last_time_ = glfwGetTime();
 
     while (!glfwWindowShouldClose(window_)) {
         glfwPollEvents();
@@ -377,6 +408,37 @@ int App::run() {
         glClear(GL_COLOR_BUFFER_BIT);
 
         handle_mouse(fbW_, fbH_);
+
+        // Animated solving: advance one step per interval.
+        if (animating_) {
+            double now = glfwGetTime();
+            step_accumulator_ += now - last_time_;
+            last_time_ = now;
+
+            if (step_accumulator_ >= step_interval_) {
+                step_accumulator_ -= step_interval_;
+
+                SolveOutcome o = state_.step_rule();
+                ++step_count_;
+                last_status_     = o.status;
+                last_rule_index_ = o.rule_index;
+
+                if (o.status == SolveStatus::Solved) {
+                    ever_solved_ = true;
+                    last_nodes_  = o.nodes;
+                    stop_animation();
+                } else if (o.status == SolveStatus::NoSolution) {
+                    bad_cells_ = state_.find_contradictions();
+                    if (!bad_cells_.empty()) {
+                        show_error_ = true;
+                        error_time_ = glfwGetTime();
+                    }
+                    stop_animation();
+                }
+            }
+        } else {
+            last_time_ = glfwGetTime();
+        }
 
         // Draw the grid (behind ImGui).
         GridLayout layout;

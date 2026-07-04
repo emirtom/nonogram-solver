@@ -35,6 +35,14 @@ LineUpdate rule_3_1(Line& line);  // scattered colored cells of one run -> fill
 LineUpdate rule_3_2(Line& line);  // skip short segments bounded by empties
 LineUpdate rule_3_3(Line& line);  // non-overlapping neighbor -> unique placement
 
+constexpr int NUM_RULES = 11;
+
+// Apply a single rule by index (0 = 1.1, ..., 10 = 3.3).
+LineUpdate apply_single_rule(int index, Line& line);
+
+// Human-readable name for a rule index.
+const char* rule_name(int index);
+
 // Apply all 11 rules to a single line once, accumulating updates.
 LineUpdate apply_all_rules(Line& line);
 

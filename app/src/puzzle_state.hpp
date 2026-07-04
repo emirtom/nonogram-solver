@@ -36,7 +36,11 @@ class PuzzleState {
     // Solve / step / reset via the in-process solver.
     SolveOutcome solve(Backend backend = Backend::CPU);
     SolveOutcome step();
+    SolveOutcome step_rule();
     void reset();
+    void reset_solver();
+
+    int rule_index() const { return solver_.rule_index(); }
 
     // Validate the current board against its clues. Returns the set of
     // cell coordinates (col, row) that participate in a contradiction —
